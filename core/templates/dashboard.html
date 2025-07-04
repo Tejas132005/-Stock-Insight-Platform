@@ -1,0 +1,148 @@
+<!-- Bootstrap for Modal -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+
+{% extends 'base.html' %} {% block title %}Dashboard{% endblock %} {% block content %}
+
+
+<div class="flex justify-between items-start gap-10">
+
+    <!-- 📊 Main Dashboard Content (Left) -->
+    <div class="w-3/4">
+        <h1 class="text-3xl font-bold mb-6">📈 Stock Prediction Dashboard</h1>
+
+        {% if profile.tier == "free" %}
+        <div class="bg-yellow-200 text-center p-3 rounded shadow mb-4">
+            🪙 You're on the <strong>Free</strong> plan (5 predictions/day).
+            <a href="/api/v1/upgrade/" class="text-blue-700 font-semibold">Upgrade to Pro</a>
+        </div>
+        {% endif %}
+
+        <!-- Ticker Input -->
+        <form id="predict-form" class="flex gap-4 mb-4">
+            <input type="text" id="ticker-input" placeholder="Enter Ticker (e.g. AAPL)" class="border p-2 rounded w-1/2" required> {% if error %}
+            <p class="text-red-600">{{ error }}</p>
+            {% endif %}
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Predict</button>
+        </form>
+
+        <!-- Prediction Result -->
+        <div id="result" class="p-4 bg-white rounded shadow hidden">
+            <p class="text-lg"><strong>Next-Day Price:</strong> ₹<span id="predicted-price"></span></p>
+            <div class="flex flex-wrap mt-4 gap-4">
+                <img id="plot1" class="w-1/2" />
+                <img id="plot2" class="w-1/2" />
+            </div>
+        </div>
+
+        <!-- Past Predictions -->
+        <h2 class="text-xl font-semibold mt-10 mb-2">Past Predictions</h2>
+        <table class="table-auto w-full bg-white shadow rounded">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="p-2">Ticker</th>
+                    <th class="p-2">Predicted Price</th>
+                    <th class="p-2">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prediction in predictions %}
+                <tr class="border-t">
+                    <td class="p-2">{{ prediction.ticker }}</td>
+                    <td class="p-2">₹{{ prediction.next_day_price|floatformat:2 }}</td>
+                    <td class="p-2">{{ prediction.created_at }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="text-center p-2">No predictions yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 👤 Profile Info -->
+    <div class="w-1/4 bg-white p-4 shadow rounded text-center">
+        <img src="https://ui-avatars.com/api/?name={{ request.user.username }}&background=random&size=128" alt="Avatar" class="w-24 h-24 mx-auto rounded-full border mb-3">
+        <h2 class="text-lg font-semibold">{{ request.user.username }}</h2>
+        <p class="text-sm text-gray-500 capitalize">{{ profile.tier }} tier</p>
+    </div>
+</div>
+
+<!-- ❌ Bootstrap Modal for Error -->
+<div class="modal fade" id="limitModal" tabindex="-1" aria-labelledby="limitModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="limitModalLabel">Free Tier Limit Reached</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                You have reached your daily limit of 5 predictions. Please upgrade to the <strong>Pro Plan</strong> for unlimited access.
+            </div>
+            <div class="modal-footer">
+                <a href="/api/v1/upgrade/" class="btn btn-primary" style="color: gold; font-weight: bold;">Upgrade to Pro</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block head %}
+<!-- CSRF token -->
+<meta name="csrf-token" content="{{ csrf_token }}">
+
+
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const form = document.getElementById("predict-form");
+        const input = document.getElementById("ticker-input");
+        const resultBox = document.getElementById("result");
+        const priceSpan = document.getElementById("predicted-price");
+        const plot1 = document.getElementById("plot1");
+        const plot2 = document.getElementById("plot2");
+
+        const csrftoken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        form.addEventListener("submit", function(e) {
+            e.preventDefault();
+
+            const ticker = input.value.trim().toUpperCase();
+            if (!ticker) return;
+
+            fetch("/api/v1/predict/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrftoken
+                    },
+                    body: JSON.stringify({
+                        ticker: ticker
+                    })
+                })
+                .then(async res => {
+                    const data = await res.json();
+
+                    if (res.status === 429) {
+                        const limitModal = new bootstrap.Modal(document.getElementById("limitModal"));
+                        limitModal.show();
+                        throw new Error(data.error || "Free tier limit reached.");
+                    }
+
+                    if (!res.ok) {
+                        alert(data.error || "Something went wrong.");
+                        throw new Error(data.error || "Prediction error");
+                    }
+
+                    priceSpan.textContent = data.next_day_price.toFixed(2);
+                    plot1.src = "/" + data.plot1_url;
+                    plot2.src = "/" + data.plot2_url;
+                    resultBox.classList.remove("hidden");
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+        });
+    });
+</script>
+{% endblock %}
