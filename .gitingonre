@@ -1,7 +1,16 @@
-.env
+# Ignore environment and build
+venv/
 __pycache__/
 *.pyc
 *.pyd
 *.log
 *.sqlite3
-venu/
+*.db
+
+# Ignore env secrets
+.env
+
+# Node or front-end if any
+node_modules/
+dist/
+build/
