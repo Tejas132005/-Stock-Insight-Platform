@@ -10,10 +10,9 @@ import os, uuid
 import numpy as np
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from core.models import Prediction
-from datetime import date
 from django.utils.timezone import now
 from rest_framework import generics, filters
+from django.conf import settings
 
 
 class PredictAPIView(APIView):
@@ -50,23 +49,25 @@ class PredictAPIView(APIView):
         r2 = 1 - (np.sum((y_true - y_pred)**2) / np.sum((y_true - y_true.mean())**2))
 
         # Save plots
-        os.makedirs("media", exist_ok=True)
-        plot1 = f"media/{uuid.uuid4()}_history.png"
-        plot2 = f"media/{uuid.uuid4()}_compare.png"
-        plot_history(df, plot1)
-        plot_prediction(y_true, y_pred, plot2)
+        os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+        filename1 = f"{uuid.uuid4()}_history.png"
+        filename2 = f"{uuid.uuid4()}_compare.png"
+        plot1_path = os.path.join(settings.MEDIA_ROOT, filename1)
+        plot2_path = os.path.join(settings.MEDIA_ROOT, filename2)
+        plot_history(df, plot1_path)
+        plot_prediction(y_true, y_pred, plot2_path)
 
         # Save to DB
         prediction = Prediction.objects.create(
-            user=request.user,
+            user=user,
             ticker=ticker.upper(),
             next_day_price=next_price,
             metrics={"mse": mse, "rmse": rmse, "r2": r2},
-            plot1_url=plot1,
-            plot2_url=plot2
+            plot1_url=filename1,
+            plot2_url=filename2,
         )
-
-       
+        print("..........Images Generated..................")
+        print("Plot1 saved to:", plot1_path, "Exists?", os.path.exists(plot1_path))
 
         return Response(PredictionSerializer(prediction).data)
 
@@ -74,11 +75,10 @@ class PredictAPIView(APIView):
 @login_required
 def dashboard(request):
     user = request.user
+    profile, created = UserProfile.objects.get_or_create(user=user)
 
-    profile, created = UserProfile.objects.get_or_create(user = user)
-
-    predictions = Prediction.objects.filter(user=request.user).order_by('-created_at')
+    predictions = Prediction.objects.filter(user=user).order_by('-created_at')
     return render(request, "dashboard.html", {
         "predictions": predictions,
-        "profile": profile  
+        "profile": profile
     })

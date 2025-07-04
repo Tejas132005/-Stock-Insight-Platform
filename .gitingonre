@@ -7,10 +7,10 @@ __pycache__/
 *.sqlite3
 *.db
 
+
 # Ignore env secrets
 .env
 
-# Node or front-end if any
-node_modules/
-dist/
-build/
+
+# Media
+media/

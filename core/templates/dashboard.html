@@ -3,8 +3,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 
 {% extends 'base.html' %} {% block title %}Dashboard{% endblock %} {% block content %}
-
-
 <div class="flex justify-between items-start gap-10">
 
     <!-- 📊 Main Dashboard Content (Left) -->
@@ -29,7 +27,7 @@
         <!-- Prediction Result -->
         <div id="result" class="p-4 bg-white rounded shadow hidden">
             <p class="text-lg"><strong>Next-Day Price:</strong> ₹<span id="predicted-price"></span></p>
-            <div class="flex flex-wrap mt-4 gap-4">
+            <div class="flex mt-4 gap-4">
                 <img id="plot1" class="w-1/2" />
                 <img id="plot2" class="w-1/2" />
             </div>
@@ -91,8 +89,6 @@
 <!-- CSRF token -->
 <meta name="csrf-token" content="{{ csrf_token }}">
 
-
-
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const form = document.getElementById("predict-form");
@@ -135,8 +131,10 @@
                     }
 
                     priceSpan.textContent = data.next_day_price.toFixed(2);
-                    plot1.src = "/" + data.plot1_url;
-                    plot2.src = "/" + data.plot2_url;
+
+                    // 🛠 Ensure media path is always correct
+                    plot1.src = data.plot1_url.startsWith("/") ? data.plot1_url : "/media/" + data.plot1_url;
+                    plot2.src = data.plot2_url.startsWith("/") ? data.plot2_url : "/media/" + data.plot2_url;
                     resultBox.classList.remove("hidden");
                 })
                 .catch(error => {
